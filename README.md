@@ -13,7 +13,7 @@
 [Supplementaty](https://virtualhumans.mpi-inf.mpg.de/papers/chibane21SRF/chibane21srf_supp.pdf) -
 [Video](https://virtualhumans.mpi-inf.mpg.de/srf/#video) -
 [Project Website](https://virtualhumans.mpi-inf.mpg.de/srf/) -
-[Arxiv](https://arxiv.org/abs/2010.13938) -
+[Arxiv](https://arxiv.org/abs/2104.06935) -
 If you find our project useful, please cite us. [Citation (Bibtex)](https://virtualhumans.mpi-inf.mpg.de/srf/#citation)
 
 ## Install
