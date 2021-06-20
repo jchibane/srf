@@ -1,0 +1,35 @@
+expname = finetune_scan23
+basedir = ./logs
+datadir = ./data/DTU_MVS/
+dataset_type = DTU
+
+no_ndc = True
+white_bkgd = False
+
+split = split_shuffled.pkl
+N_importance = 128
+N_samples = 64
+N_rand = 250
+N_rays_test = 250
+render_factor = 8
+lrate_decay = 250
+
+i_print = 1
+
+raw_noise_std = 0
+sigmoid = False
+near = 500
+far = 1000
+fine_model_duplicate = True
+
+
+precrop_iters = 10000
+precrop_frac = 0.5
+half_res = False
+
+fine_tune = scan23
+i_val_fine_tune = 200
+i_weights = 200
+i_testset = 200
+
+num_reference_views = 10

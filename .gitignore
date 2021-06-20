@@ -1,0 +1,11 @@
+__pycache__
+.idea
+!split*.pkl
+!.gitkeep
+/logs/*
+data/DTU_MVS/*/
+data/DTU_MVS_local
+*.err
+*.out
+*.zip
+slurm_scripts
