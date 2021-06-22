@@ -49,6 +49,10 @@ python generator.py --config configs/finetune_scan23.txt --video --render_factor
 
 where `--config` specifies the path to the experiment configuration and `--gen_pose` is the frame number from 0-55 (including both).
 
+## Training
+
+Coming soon.
+
 
 ## Contact
 
