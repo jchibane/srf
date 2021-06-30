@@ -2,9 +2,9 @@ __pycache__
 .idea
 !.gitkeep
 /logs/*
-data/DTU_MVS/
-data/DTU_MVS_local/
-data/DTU_MVS_git/
+data/DTU_MVS
+data/DTU_MVS_local
+data/DTU_MVS_git
 *.err
 *.out
 *.zip
