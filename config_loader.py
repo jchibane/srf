@@ -47,7 +47,8 @@ def config_parser():
     parser.add_argument("--no_reload", action='store_true',
                         help='do not reload weights from saved ckpt')
     parser.add_argument("--ft_path", type=str, default=None,
-                        help='specific weights npy file to reload for coarse network')
+                        help='Specific NN parameter file (npy) to reload for the network.'
+                             'Given string is appended to the experiments folder path.')
     parser.add_argument("--batch_size", type=int, default=1,
                         help='number of training images used per batch')
     parser.add_argument("--precrop_iters", type=int, default=0,

@@ -1,13 +1,10 @@
 __pycache__
 .idea
-!split*.pkl
 !.gitkeep
-!.gitkeep
-!/logs/finetune_scan23/checkpoint.tar
 /logs/*
-data/DTU_MVS/*/
-data/DTU_MVS_local
+data/DTU_MVS/
+data/DTU_MVS_local/
+data/DTU_MVS_git/
 *.err
 *.out
 *.zip
-slurm_scripts
