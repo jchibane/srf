@@ -49,7 +49,7 @@ python generator.py --config configs/finetune_scan23.txt --video --render_factor
 
 where `--config` specifies the path to the experiment configuration and `--gen_pose` is the frame number from 0-55 (including both).
 
-> Note: The above configuration uses a batch of 250 rays to render at once, which assumes a ~48GB GPU.
+> Note: The above configuration uses a batch of 250 rays to render at once ("N_rays_test"), which assumes a ~48GB GPU.
 > Consider adjusting this number in case of memory issues. Smaller batches will lead to increased generation time.
 
 ## Training
