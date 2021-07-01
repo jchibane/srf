@@ -15,7 +15,8 @@ def generate_video(cfg, i4d, test_dataset, epoch, specific_obj, specific_poses):
     test_dataloader = test_dataset.get_loader(num_workers=0)
 
 
-    savedir = os.path.join(basedir, expname, 'video', f'epoch_{epoch}_{specific_obj}_batch{cfg.fixed_batch}')
+    savedir = os.path.join(basedir, expname, 'video', f'epoch_{epoch}_{specific_obj}_batch{cfg.fixed_batch}'
+                                                      f'_renderfactor{cfg.render_factor}')
     os.makedirs(savedir, exist_ok=True)
 
 
