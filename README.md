@@ -44,7 +44,7 @@ rmdir data/Rectified
 
 To synthesise novel views use the following command
 ```
-python generator.py --config configs/finetune_scan23.txt --video --render_factor 8 --generate_specific_samples scan23 --fixed_batch 1 --ft_path checkpoint.tar --gen_pose 0
+python generator.py --config configs/finetune_scan23.txt --video --render_factor 8 --generate_specific_samples scan23 --fixed_batch 1 --ft_path ckpt.tar --gen_pose 0
 ```
 
 where `--config` specifies the path to the experiment configuration and `--gen_pose` is the frame number from 0-55 (including both).
