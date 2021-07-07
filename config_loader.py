@@ -88,8 +88,8 @@ def config_parser():
                         help='do not optimize, reload weights and render out render_poses path')
     parser.add_argument("--render_test", action='store_true',
                         help='render the test set instead of render_poses path')
-    parser.add_argument("--render_factor", type=int, default=1,
-                        help='downsampling factor to speed up rendering, 1 is full size, set 4 or 8 for fast preview')
+    parser.add_argument("--render_factor", type=int, default=4,
+                        help='Downsampling factor to speed up test time rendering of images. 1 is full size, set to 4 or 8 for faster preview.')
 
     # dataset options
     parser.add_argument("--dataset_type", type=str, default='DTU',

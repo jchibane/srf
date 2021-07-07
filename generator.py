@@ -69,6 +69,7 @@ if __name__ == '__main__':
 
 
     cfg = config_loader.get_config()
+    cfg.video = True
 
     set = 'test'
     test_dataset = SceneDataset(cfg, set)
@@ -77,7 +78,6 @@ if __name__ == '__main__':
     i4d.load_model()
 
     if cfg.dataset_type == 'DTU':
-        if cfg.video:
-            for scan in cfg.generate_specific_samples:
-                pose = DTU.load_cam_path()[cfg.gen_pose]
-                generate_video(cfg, i4d, test_dataset, i4d.start, scan, [(cfg.gen_pose,pose)])
+        for scan in cfg.generate_specific_samples:
+            pose = DTU.load_cam_path()[cfg.gen_pose]
+            generate_video(cfg, i4d, test_dataset, i4d.start, scan, [(cfg.gen_pose,pose)])

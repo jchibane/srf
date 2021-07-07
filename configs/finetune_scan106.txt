@@ -1,4 +1,4 @@
-expname = finetune_scan23
+expname = finetune_scan106
 basedir = ./logs
 datadir = ./data/DTU_MVS/
 dataset_type = DTU

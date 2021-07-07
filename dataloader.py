@@ -62,7 +62,7 @@ class SceneDataset(Dataset):
         return torch.Tensor(ref_pts)  # (num_ref_views, rays, num_samples, 2)
 
     def proj_pts_to_ref_torch(self, pts, ref_poses, device, focal = None):
-        print((len(ref_poses), pts.shape[0],pts.shape[1],2))
+        # print((len(ref_poses), pts.shape[0],pts.shape[1],2))
         ref_pts = torch.zeros([2, 2]).to(device)
         ref_pts = torch.zeros([10, 250, 192, 2]).to(device)
         ref_pts = torch.zeros((len(ref_poses), pts.shape[0],pts.shape[1],2)).to(device)

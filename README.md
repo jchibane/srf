@@ -42,15 +42,16 @@ rmdir data/Rectified
 
 ## Quick Start with Pretrained Model
 
-To synthesise novel views use the following command
+To synthesise novel views of a pretrained and finetuned model use the following command
 ```
-python generator.py --config configs/finetune_scan23.txt --video --render_factor 8 --generate_specific_samples scan23 --fixed_batch 1 --ft_path ckpt.tar --gen_pose 0
+python generator.py --config configs/finetune_scan23.txt --generate_specific_samples scan23 --ft_path ckpt.tar --gen_pose 0
 ```
 
-where `--config` specifies the path to the experiment configuration and `--gen_pose` is the frame number from 0-55 (including both).
+where `--gen_pose` is a camera pose of a video sequence from 0-55 (including both). 
+We also provide a second model that can be used by switching both "23" to "106" in the previous command.
 
-> Note: The above configuration uses a batch of 250 rays to render at once ("N_rays_test"), which assumes a ~48GB GPU.
-> Consider adjusting this number in case of memory issues. Smaller batches will lead to increased generation time.
+> Note: The above configuration uses a batch of 250 rays to render at once, which assumes a ~48GB GPU.
+> Consider adjusting this number in case of memory issues, by adding `--N_rays_test X`, with a suited number X to previous command. Smaller batches will lead to increased generation time.
 
 ## Training
 
