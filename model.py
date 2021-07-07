@@ -365,7 +365,6 @@ class Implicit4DNN(nn.Module):
         # similarity CNN
         def sim_combinations(num_views, num_merged_views):
             combis = list(itertools.combinations(range(num_views), num_merged_views))
-            random.shuffle(combis)
             combis_list = []
             for combi in combis:
                 combis_list += list(combi)
