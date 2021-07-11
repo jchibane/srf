@@ -52,8 +52,8 @@ python 3d_reconstruction.py --config configs/finetune_scan106.txt --generate_spe
 
 > Note: The above configuration uses a batch of 250 rays to render at once, which assumes a ~48GB GPU.
 > Consider adjusting this number in case of memory issues, by adding `--N_rays_test X`, with a suited number X to 
-> previous command. Smaller batches will lead to increased generation time.
-> 
+> previous command. Smaller batches will lead to increased generation time. Moreover, RAM usage can be reduced by
+> setting `--render_factor X` (with X=8 or 16) for image generation.
 
 ## Training
 
