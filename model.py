@@ -3,7 +3,6 @@ torch.autograd.set_detect_anomaly(True)
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-from torchsearchsorted import searchsorted
 import numpy as np
 import itertools
 import random
@@ -27,9 +26,10 @@ class Implicit4D():
             if cfg.fine_model_duplicate:
                 self.model_fine = self.model
             else:
-                raise ValueError('Not yet implemented / tested')
-                self.model_fine = models[cfg.model](cfg, self.device)
-                self.grad_vars += list(self.model_fine.parameters())
+                # see e.g. render_data() function
+                raise ValueError('Not yet implemented / tested ')
+                # self.model_fine = models[cfg.model](cfg, self.device)
+                # self.grad_vars += list(self.model_fine.parameters())
 
         self.start = 0
         self.val_min = None
@@ -79,30 +79,20 @@ class Implicit4D():
         ref_poses = ref_poses.to(self.device) # (batch_size x num_ref_views, 4, 4) np.array, f32
 
         if self.cfg.N_importance > 0:
+            # we need no gradients for the coarse model, as coarse and fine models are duplicates
             with torch.no_grad():
                 raw = self.model(ref_images.float(), ref_pts.float())
-                rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d,
+                rgb_map_0, disp_map_0, acc_map_0, weights, depth_map = raw2outputs(raw, z_vals, rays_d,
                                                                              self.cfg.raw_noise_std,
                                                                              self.cfg.white_bkgd)
-        else:
-            raw = self.model(ref_images.float(), ref_pts.float())
-            rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, self.cfg.raw_noise_std,
-                                                                         self.cfg.white_bkgd)
-
-
-
-        if self.cfg.N_importance > 0:
-            rgb_map_0, disp_map_0, acc_map_0 = rgb_map, disp_map, acc_map
-
             z_vals_mid = .5 * (z_vals[..., 1:] + z_vals[..., :-1])
 
-            z_samples = sample_pdf(z_vals_mid, weights[..., 1:-1], self.cfg.N_importance, det=(self.cfg.perturb==0.))
+            z_samples = sample_pdf(z_vals_mid, weights[..., 1:-1], self.cfg.N_importance, det=(self.cfg.perturb == 0.))
             z_samples = z_samples.detach()
 
             z_vals, _ = torch.sort(torch.cat([z_vals, z_samples], -1), -1)
             pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals[..., :,
                                                                 None]  # [N_rays, N_samples + N_importance, 3]
-
 
             if self.cfg.batch_size != 1:
                 raise ValueError('Not yet implemented. Next line accepts only single batch')
@@ -112,7 +102,12 @@ class Implicit4D():
             raw = self.model_fine(ref_images.float(), ref_pts.float())
 
             rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, self.cfg.raw_noise_std,
-                                                                     self.cfg.white_bkgd)
+                                                                         self.cfg.white_bkgd)
+        else:
+            raw = self.model(ref_images.float(), ref_pts.float())
+            rgb_map, disp_map, acc_map, weights, depth_map = raw2outputs(raw, z_vals, rays_d, self.cfg.raw_noise_std,
+                                                                         self.cfg.white_bkgd)
+
 
         ret = {'rgb': rgb_map, 'disp': disp_map, 'acc': acc_map, 'raw': raw}
 
@@ -128,7 +123,29 @@ class Implicit4D():
         return ret
 
 
+    def point_wise_3D_reconst(self, ref_images, ref_poses , w_pts, focal):
 
+        ref_images = ref_images.to(self.device) # (batch_size x num_ref_views, H, W, 3)
+        w_pts = w_pts.to(self.device) # (batch_size x num_ref_views, rays, num_samples, 2)
+        ref_poses = ref_poses.to(self.device) # (batch_size x num_ref_views, 4, 4) np.array, f32
+
+        ref_pts = self.proj_pts_to_ref(w_pts, ref_poses, self.device, focal)
+
+        if self.cfg.batch_size != 1:
+            raise ValueError('Not yet implemented. Next line accepts only single batch')
+
+        if self.cfg.N_importance > 0:
+            # here we don't use the fine model to hierarchically predict more points on a ray, as we predict directly
+            # on voxels instead
+            raw = self.model_fine(ref_images.float(), ref_pts.float())
+
+        else:
+            raw = self.model(ref_images.float(), ref_pts.float())
+
+        rgb = torch.sigmoid(raw[..., :3])  # [N_rays, N_samples, 3]
+        sigma = raw[..., 3] # [N_rays, N_samples]
+
+        return rgb.cpu().numpy(),   sigma.cpu().numpy()
 
     def render_img(self, data, H, W, specific_pose = False):
         all_ret = {}
@@ -142,7 +159,7 @@ class Implicit4D():
                 rel_ref_cam_locs, target, idx, focal  = batch[-4:]
                 inputs = [tensor.reshape([-1] + list(tensor.shape[2:])) for tensor in batch[:-4]]
             focal = np.array(focal)
-            rays_o, rays_d, viewdirs, pts, z_vals, ref_pts, cosines, ref_images, ref_poses = inputs
+            rays_o, rays_d, viewdirs, pts, z_vals, ref_pts, ref_images, ref_poses = inputs
             ret = self.render_data(ref_images, ref_pts, rays_o, rays_d, viewdirs, z_vals,  ref_poses, focal)
             # put all results into dictionary
             for k in ret:
@@ -412,7 +429,7 @@ def sample_pdf(bins, weights, N_importance_samples, det=False):
 
     # Invert CDF
     # for a val in 0-1 in cdf find where it came from along the ray
-    inds = searchsorted(cdf.contiguous(), u.contiguous(), side='right')
+    inds = torch.searchsorted(cdf.contiguous(), u.contiguous(), right=True)
     # use min and max coordinates for indices
     below = torch.max(torch.zeros_like(inds-1), inds-1)
     # min(N_samples-1 * correct_Shape , inds)

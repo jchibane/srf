@@ -73,10 +73,11 @@ def load_scan_data(scan, mode, num_views, cfg, specific_poses = None, fixed = Tr
     imgs = []
     poses = []
     for pose in poses_idx:
-        img_name = img_string(scan, pose, 'max') # always use max ligntning images- these have the minimal amount of pose dependent shadows
+        # always use max lightning images - these have the minimal amount of pose dependent shadows
+        img_name = img_string(scan, pose, 'max')
         fname = os.path.join(basedir, img_name)
         img = imageio.imread(fname)
-        #TODO check this half_res works well
+
         if cfg.half_res:
             img_half_res = np.zeros(( ny, nx, 3))
             img_half_res[:] = cv2.resize(img, (nx, ny), interpolation=cv2.INTER_AREA)

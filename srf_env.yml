@@ -4,17 +4,17 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - cudatoolkit=10.1.243=h6bb024c_0
   - pip=20.2.2=py36_0
   - python=3.6.12=hcff3b4d_2
-  - pytorch=1.6.0
+  - pytorch=1.8.0
   - matplotlib=3.3.2
+  - scipy=1.4.1=py36h0b6359f_0
   - pip:
     - configargparse==1.2.3
     - imageio==2.9.0
     - opencv-python==4.4.0.42
-    - tensorboard==1.15.0
-    - torchvision==0.7.0
+    - tensorboard==2.0
+    - torchvision==0.9.0
     - tqdm==4.49.0
     - pymcubes==0.1.0
     - trimesh==3.6.18

@@ -18,13 +18,25 @@ class SceneDataset(Dataset):
         self.batch_size = cfg.batch_size
         self.num_reference_views = cfg.num_reference_views
 
+        # load a specific defined input from the data - needed for generating specific outputs
         self.load_specific_sample = None
+
+        # load specific reference views in specific order - not needed anymore?
         self.load_specific_poses = None
+
+        # load specific rendering pose - needed for generating novel view outputs
         self.load_specific_target_pose = None
+
+        # load a reference views from a specific batch - needed to fine-tune on fixed inputs
         self.load_fixed = True
+        # specifies which batch to load
+        # cfg.fixed_batch
+
+        # shuffle the loaded reference views - not needed anymore?
         self.shuffle = False
 
         self.fine_tune  = cfg.fine_tune
+
         if self.fine_tune != "None":
             print(self.fine_tune, type(self.fine_tune))
             print('Dataloader set in fine-tune mode.')
@@ -122,18 +134,6 @@ class SceneDataset(Dataset):
         output = {}
 
 
-        def compute_cos(pts, target_viewdirs):
-            all_cos = torch.zeros((pts.shape[0], self.num_reference_views, pts.shape[1]))
-            for target_ray, ray_pts in enumerate(pts):
-                for ref_cam_idx, ref_cam_loc in enumerate(ref_cam_locs):
-                    ref_ray_dirs = ray_pts - ref_cam_loc  # (num_samples, 3)
-                    ref_ray_dirs = ref_ray_dirs / torch.norm(ref_ray_dirs, dim=-1, keepdim=True)
-                    all_cos[target_ray, ref_cam_idx] = torch.sum(ref_ray_dirs * target_viewdirs[target_ray], dim=-1)
-            return all_cos  # (rays, num_ref_views, num_samples)
-
-
-
-
 
         # create relative reference view features
         self.ref_pose_features = [ref_pose[:3,3] - target_pose[:3,3] for ref_pose in ref_poses]
@@ -146,16 +146,15 @@ class SceneDataset(Dataset):
 
             viewdirs = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
 
-            cosines = compute_cos(pts,viewdirs)
             ref_pts = self.proj_pts_to_ref(pts, ref_poses)
 
             if self.load_specific_target_pose is None:
                 output['complete'] = [[rays_o[i:i+N_rays_test], rays_d[i:i+N_rays_test], viewdirs[i:i+N_rays_test],pts[i:i+N_rays_test],
-                                       z_vals[i:i+N_rays_test], ref_pts[:,i:i+N_rays_test], cosines[i:i+N_rays_test],
+                                       z_vals[i:i+N_rays_test], ref_pts[:,i:i+N_rays_test],
                                        ref_images, ref_poses, rel_ref_cam_locs, target, sample, self.focal ] for i in range(0, rays_o.shape[0], N_rays_test)]
             else:
                 output['complete'] = [[rays_o[i:i+N_rays_test], rays_d[i:i+N_rays_test], viewdirs[i:i+N_rays_test],pts[i:i+N_rays_test],
-                                       z_vals[i:i+N_rays_test], ref_pts[:,i:i+N_rays_test], cosines[i:i+N_rays_test],
+                                       z_vals[i:i+N_rays_test], ref_pts[:,i:i+N_rays_test],
                                        ref_images, ref_poses, rel_ref_cam_locs, sample, self.focal] for i in range(0, rays_o.shape[0], N_rays_test)]
 
             return output
@@ -184,11 +183,10 @@ class SceneDataset(Dataset):
 
                 # Sample points along a ray
                 pts, z_vals = self.sample_ray(rays_o_selected, rays_d_selected)
-                cosines = compute_cos(pts, viewdirs)
                 ref_pts = self.proj_pts_to_ref(pts, ref_poses)
 
-                output[name] = [rays_o_selected, rays_d_selected, viewdirs, target_s, pts, z_vals, cosines, ref_pts,
-                                ref_images, rel_ref_cam_locs, ref_poses, self.focal]
+                output[name] = [rays_o_selected, rays_d_selected, viewdirs, target_s, pts, z_vals,
+                                ref_pts, ref_images, rel_ref_cam_locs, ref_poses, self.focal]
 
 
             return output
@@ -249,7 +247,8 @@ def get_rays(H, W, focal, cc, c2w, camera_system):
     if camera_system == 'x_down_y_up_z_neg_cam_dir':
         dirs = torch.stack([(i-cc[0])/focal[0], -(j-cc[1])/focal[1], -torch.ones_like(i)], -1)
     # Rotate ray directions from camera frame to the world frame
-    rays_d = torch.sum(dirs[..., np.newaxis, :] * c2w[:3,:3], -1)  # dot product, equals to: [c2w.dot(dir) for dir in dirs]
+    # dot product, equals to: [c2w.dot(dir) for dir in dirs]
+    rays_d = torch.sum(dirs[..., np.newaxis, :] * c2w[:3,:3], -1)
     # Translate camera frame's origin to the world frame. It is the origin of all rays.
     rays_o = c2w[:3,-1].expand(rays_d.shape)
     return rays_o, rays_d

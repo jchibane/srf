@@ -17,20 +17,15 @@
 If you find our project useful, please cite us. [Citation (Bibtex)](https://virtualhumans.mpi-inf.mpg.de/srf/#citation)
 
 ## Install
-A linux system with python environment manager [conda](https://www.anaconda.com/) and a full and system wide [installation of the CUDA Toolkit 10.1](https://developer.nvidia.com/cuda-10.1-download-archive-base) is required for the project (the latter only for compilation of the torchsearchsorted library).
+A linux system with python environment manager [conda](https://www.anaconda.com/) is required for the project.
 
 The following commands clone the repo on your machine and install an environment, "srf", containing all dependencies. 
 ```
-git clone ADD LINK
+git clone https://github.com/jchibane/srf.git
 cd SRF_git
 conda env create -f srf_env.yml
 ```
-Please close the terminal session at this point, and reopen it at the same location.
-This is done to ensure conda correctly loads all packages.
-```
-conda activate srf
-pip install torchsearchsorted/
-```
+
 ### Data Setup
 With the next commands the [DTU MVS dataset](https://roboimagedata.compute.dtu.dk/?page_id=36) is downloaded and put in place.
 ```
@@ -44,14 +39,21 @@ rmdir data/Rectified
 
 To synthesise novel views of a pretrained and finetuned model use the following command
 ```
-python generator.py --config configs/finetune_scan23.txt --generate_specific_samples scan23 --ft_path ckpt.tar --gen_pose 0
+python generator.py --config configs/finetune_scan23.txt --generate_specific_samples scan23 --gen_pose 0
 ```
 
 where `--gen_pose` is a camera pose of a video sequence from 0-55 (including both). 
 We also provide a second model that can be used by switching both "23" to "106" in the previous command.
 
+In order to do a 3D reconstruction please run:
+```
+python 3d_reconstruction.py --config configs/finetune_scan106.txt --generate_specific_samples scan106
+```
+
 > Note: The above configuration uses a batch of 250 rays to render at once, which assumes a ~48GB GPU.
-> Consider adjusting this number in case of memory issues, by adding `--N_rays_test X`, with a suited number X to previous command. Smaller batches will lead to increased generation time.
+> Consider adjusting this number in case of memory issues, by adding `--N_rays_test X`, with a suited number X to 
+> previous command. Smaller batches will lead to increased generation time.
+> 
 
 ## Training
 
