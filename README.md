@@ -62,6 +62,7 @@ Start to train a model with a specific configuration file using:
 python trainer.py --config configs/train_DTU.txt
 ```
 
+The fine-tuning code is coming soon.
 ## Contact
 
 For questions and comments please contact [Julian Chibane](http://virtualhumans.mpi-inf.mpg.de/people/Chibane.html) via mail.
