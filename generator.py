@@ -4,51 +4,95 @@ import numpy as np
 from dataloader import SceneDataset
 import imageio
 import data.load_DTU as DTU
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
-def generate_video(cfg, i4d, test_dataset, epoch, specific_obj, specific_poses):
+def training_visualization(num_images, cfg, i4d, dataset, epoch, generate_specific = True):
 
     # Create log dir and copy the config file
     basedir = cfg.basedir
     expname = cfg.expname
 
-    test_dataloader = test_dataset.get_loader(num_workers=0)
+    dataset.render_factor = 8
+    dataloader = dataset.get_loader(num_workers=0)
+
+    if generate_specific:
+        iter = cfg.generate_specific_samples
+    else:
+        iter = range(num_images)
+
+    for sample in iter:
+        savedir = os.path.join(basedir, expname, 'training_visualization', f'epoch_{epoch}_{sample}')
+        img_outpath = os.path.join(savedir, f'rendering.png')
+        if os.path.exists(savedir):
+            continue
+        else:
+            os.makedirs(savedir)
+
+        if generate_specific:
+            dataloader.dataset.load_specific_input = sample
+            print(f'generating {dataloader.dataset.load_specific_input}')
+        render_data = dataloader.__iter__().__next__()['complete']
+        render_and_save(i4d, dataset, render_data, savedir, img_outpath, False)
+        dataloader.dataset.load_specific_input = None
+
+
+
+def render_pose(cfg, i4d, dataset, epoch, specific_obj, pose):
+
+    # Create log dir and copy the config file
+    basedir = cfg.basedir
+    expname = cfg.expname
+
+    dataloader = dataset.get_loader(num_workers=0)
 
 
     savedir = os.path.join(basedir, expname, 'renderings', f'{specific_obj}_epoch_{epoch}_renderfactor{cfg.render_factor}')
     os.makedirs(savedir, exist_ok=True)
 
 
-    for i, pose in enumerate(specific_poses):
+    img_outpath = os.path.join(savedir, f'pose_{pose[0]}.png')
+    c2w = pose[1]
 
-        filename = os.path.join(savedir, f'pose_{pose[0]}.png')
-        c2w = pose[1]
+    if os.path.exists(img_outpath):
+        # Rendering already exists.
+        return
 
-        if os.path.exists(filename):
-            # Rendering already existed.
-            continue
+    dataloader.dataset.load_specific_input = specific_obj
+    dataloader.dataset.load_specific_rendering_pose = c2w
+    print(f'generating {dataloader.dataset.load_specific_input}, pose: {pose[0]}')
+    render_data = dataloader.__iter__().__next__()['complete']
 
-        test_dataloader.dataset.load_specific_sample = specific_obj
-        test_dataloader.dataset.load_specific_target_pose = c2w
-        print(f'generating {test_dataloader.dataset.load_specific_sample, i}')
-        test_data = test_dataloader.__iter__().__next__()['complete']
+    render_and_save(i4d, dataset, render_data, savedir, img_outpath, True)
 
-        with torch.no_grad():
-            rgb8, ref_images, scan = i4d.render_img(test_data, test_dataset.H, test_dataset.W, True)
+    dataloader.dataset.load_specific_input = None
+    dataloader.dataset.load_specific_rendering_pose = None
 
 
-        imageio.imwrite(filename, rgb8)
+def render_and_save(i4d, dataset, render_data, savedir, img_outpath, specific_pose):
 
-    if ref_images is None:
-        print("Rendering already existed.")
-    else:
-        for i, ref_img in enumerate(ref_images):
-            filename = os.path.join(savedir, f'ref_img_{i}.png')
-            imageio.imwrite(filename, ref_img)
+    # Render image
+    with torch.no_grad():
+        if specific_pose:
+            rgb8, ref_images, scan = i4d.render_img(render_data, dataset.H, dataset.W, specific_pose)
+        else:
+            rgb8, ref_images, target, scan = i4d.render_img(render_data, dataset.H, dataset.W, specific_pose)
+            filename = os.path.join(savedir, f'target.png')
+            imageio.imwrite(filename, target)
+    # Save rendered image
+    imageio.imwrite(img_outpath, rgb8)
 
-        import matplotlib
-        matplotlib.use('Agg')
-        import matplotlib.pyplot as plt
+    # Copy all reference images into rendering folder
+    for i, ref_img in enumerate(ref_images):
+        outpath = os.path.join(savedir, f'ref_img_{i}.png')
+        if not os.path.exists(outpath):
+            imageio.imwrite(outpath, (ref_img*255).numpy().astype(np.uint8))
+
+    # Put all reference images in a single image and save
+    outpath = os.path.join(savedir, f'ref_images.png')
+    if not os.path.exists(outpath):
         plt.figure(figsize=(50, 20), dpi=200)
         plt.xticks([]), plt.yticks([])
         for i in range(10):
@@ -59,11 +103,8 @@ def generate_video(cfg, i4d, test_dataset, epoch, specific_obj, specific_poses):
 
             ax.imshow(ref_images[i], interpolation='bicubic')
 
-        plt.savefig(os.path.join(savedir, f'ref_images.png'))
+        plt.savefig(outpath)
         plt.close()
-
-    test_dataloader.dataset.load_specific_sample = None
-    test_dataloader.dataset.load_specific_target_pose = None
 
 
 if __name__ == '__main__':
@@ -75,12 +116,12 @@ if __name__ == '__main__':
     cfg.video = True
 
     set = 'test'
-    test_dataset = SceneDataset(cfg, set)
-    i4d = model.Implicit4D(cfg, test_dataset.proj_pts_to_ref_torch)
+    dataset = SceneDataset(cfg, set)
+    i4d = model.Implicit4D(cfg, dataset.proj_pts_to_ref_torch)
 
     i4d.load_model()
 
     if cfg.dataset_type == 'DTU':
         for scan in cfg.generate_specific_samples:
             pose = DTU.load_cam_path()[cfg.gen_pose]
-            generate_video(cfg, i4d, test_dataset, i4d.start, scan, [(cfg.gen_pose,pose)])
+            render_pose(cfg, i4d, dataset, i4d.start, scan, (cfg.gen_pose,pose))

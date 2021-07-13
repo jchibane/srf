@@ -57,8 +57,10 @@ python 3d_reconstruction.py --config configs/finetune_scan106.txt --generate_spe
 
 ## Training
 
-Coming soon.
-
+Start to train a model with a specific configuration file using:
+```
+python trainer.py --config configs/train_DTU.txt
+```
 
 ## Contact
 

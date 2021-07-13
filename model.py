@@ -210,6 +210,7 @@ class Implicit4D():
 
             # Load model
             self.model.load_state_dict(ckpt['network_fn_state_dict'])
+            self.model.combis_list = ckpt['sim_combinations']
             if self.model_fine is not None and not self.cfg.fine_model_duplicate:
                 self.model_fine.load_state_dict(ckpt['network_fine_state_dict'])
 
@@ -225,6 +226,7 @@ class Implicit4D():
             'global_step': global_step + 1,
             'network_fn_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'sim_combinations': self.model.combis_list
         }
         if not self.model_fine is None and not self.cfg.fine_model_duplicate:
             save_dict['network_fine_state_dict'] = self.model_fine.state_dict()
@@ -319,6 +321,27 @@ class Implicit4DNN(nn.Module):
         self.num_ref_views = cfg.num_reference_views
         self.batch_size = cfg.batch_size
 
+        self.combis_list = self.sample_sim_combinations(self.num_ref_views, 2)
+
+
+    # sample an ordering of input reference views, which is used to order the encoded views for the subsequent
+    # similarity emulating CNN
+    def sample_sim_combinations(self, num_views, num_merged_views):
+        # instead of all possible permutations of size num_merged_views (i.e. regarding inequality due to ordering)
+        # we only consider all possible sets of size num_merged_views (i.e. disregarding inequality due to ordering)
+        # and shuffle these to encourage unbiased, more symmetric learning
+        combis = list(itertools.combinations(range(num_views), num_merged_views))
+        random.shuffle(combis)
+        combis_list = []
+        for combi in combis:
+            combi = list(combi)
+            random.shuffle(combi)
+            combis_list += combi
+        return combis_list
+
+
+
+
     def forward(self, ref_images, ref_pts):
 
 
@@ -372,28 +395,20 @@ class Implicit4DNN(nn.Module):
 
         # here every channel corresponds to one feature.
         features = torch.cat((feature_0, feature_1, feature_2, feature_3, feature_4, feature_5, feature_6, feature_7),
-                             dim=1)  # out (batch_size x num_ref_views, features, rays, num_samples), 300MB add
+                             dim=1)  # out (batch_size x num_ref_views, features, rays, num_samples),
 
 
-        features = features.reshape((self.batch_size, self.num_ref_views, self.feature_size, rays, num_samples)) # for free
-        features = features.permute(0, 3, 4, 1, 2) # out (batch_size, rays, num_samples, num_ref_views, features) for free
-        features = features.reshape((self.batch_size * rays * num_samples, 1, self.num_ref_views, self.feature_size)) # for free
-
-        # similarity CNN
-        def sim_combinations(num_views, num_merged_views):
-            combis = list(itertools.combinations(range(num_views), num_merged_views))
-            combis_list = []
-            for combi in combis:
-                combis_list += list(combi)
-            return combis_list
+        features = features.reshape((self.batch_size, self.num_ref_views, self.feature_size, rays, num_samples))
+        features = features.permute(0, 3, 4, 1, 2) # out (batch_size, rays, num_samples, num_ref_views, features)
+        features = features.reshape((self.batch_size * rays * num_samples, 1, self.num_ref_views, self.feature_size))
 
 
-        features = features[:,:,sim_combinations(self.num_ref_views, 2)] # out (batch_size * rays * num_samples, 1, num_ref_views pairs, features), 2.8 GB add
-        features = self.actvn(self.conv_sim_pair(features)) # out (batch_size * rays * num_samples, channels, num_ref_views pairs /2, 1), 5.5 GB add
+        features = features[:,:,self.combis_list] # out (batch_size * rays * num_samples, 1, num_ref_views pairs, features)
+        features = self.actvn(self.conv_sim_pair(features)) # out (batch_size * rays * num_samples, channels, num_ref_views pairs /2, 1)
 
 
-        features = self.actvn(self.conv_sim_merge_1(features)) # out (batch_size * rays * num_samples, 128, convoled views, 1), -2.5 GB add
-        features = self.actvn(self.conv_sim_merge_2(features)) # out (batch_size * rays * num_samples, 128, convoled views, 1), unchanged
+        features = self.actvn(self.conv_sim_merge_1(features)) # out (batch_size * rays * num_samples, 128, convoled views, 1)
+        features = self.actvn(self.conv_sim_merge_2(features)) # out (batch_size * rays * num_samples, 128, convoled views, 1)
 
         self.max_over_views.stride = (features.shape[-2],1)
         self.max_over_views.kernel_size = (features.shape[-2],1)

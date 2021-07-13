@@ -9,7 +9,7 @@ import data.load_DTU as DTU
 
 class SceneDataset(Dataset):
 
-    def __init__(self, cfg, mode, num_workers=30):
+    def __init__(self, cfg, mode, num_workers=16):
         self.cfg = cfg
         self.num_workers = num_workers
         self.mode = mode
@@ -17,34 +17,30 @@ class SceneDataset(Dataset):
         self.data = None
         self.batch_size = cfg.batch_size
         self.num_reference_views = cfg.num_reference_views
-
+        self.fine_tune  = cfg.fine_tune
+        self.render_factor = cfg.render_factor
         # load a specific defined input from the data - needed for generating specific outputs
-        self.load_specific_sample = None
-
+        self.load_specific_input = None
         # load specific reference views in specific order - not needed anymore?
-        self.load_specific_poses = None
-
+        self.load_specific_reference_poses = None
         # load specific rendering pose - needed for generating novel view outputs
-        self.load_specific_target_pose = None
-
+        self.load_specific_rendering_pose = None
         # load a reference views from a specific batch - needed to fine-tune on fixed inputs
         self.load_fixed = True
         # specifies which batch to load
         # cfg.fixed_batch
-
         # shuffle the loaded reference views - not needed anymore?
         self.shuffle = False
 
-        self.fine_tune  = cfg.fine_tune
-
+        # fine-tuning setting ------------------------------------------------------------------
         if self.fine_tune != "None":
-            print(self.fine_tune, type(self.fine_tune))
-            print('Dataloader set in fine-tune mode.')
-            self.load_specific_sample = self.fine_tune
+            print('Dataloader set in fine-tune mode. Fine-tuning:', self.fine_tune)
+            self.load_specific_input = self.fine_tune
             self.shuffle = True
             self.load_mode = 'test'
 
-        if self.cfg.video or cfg.eval:
+        # image generation setting -------------------------------------------------------------
+        if self.cfg.video or self.cfg.eval:
             self.shuffle = False
 
         if cfg.dataset_type == 'DTU':
@@ -55,8 +51,6 @@ class SceneDataset(Dataset):
             self.far = cfg.far
             self.multi_world2cam = DTU.multi_world2cam_grid_sample_mat
             self.multi_world2cam_torch = DTU.multi_world2cam_grid_sample_mat_torch
-
-
 
 
     def __len__(self):
@@ -74,9 +68,6 @@ class SceneDataset(Dataset):
         return torch.Tensor(ref_pts)  # (num_ref_views, rays, num_samples, 2)
 
     def proj_pts_to_ref_torch(self, pts, ref_poses, device, focal = None):
-        # print((len(ref_poses), pts.shape[0],pts.shape[1],2))
-        ref_pts = torch.zeros([2, 2]).to(device)
-        ref_pts = torch.zeros([10, 250, 192, 2]).to(device)
         ref_pts = torch.zeros((len(ref_poses), pts.shape[0],pts.shape[1],2)).to(device)
 
         if self.cfg.dataset_type == 'DTU':
@@ -102,23 +93,22 @@ class SceneDataset(Dataset):
         if self.cfg.dataset_type == 'DTU':
 
             # for comparison of models we implement to load specific input/output data
-            if self.load_specific_sample is None:
+            if self.load_specific_input is None:
                 sample = self.data[idx]
             else:
-                sample = self.load_specific_sample
+                sample = self.load_specific_input
 
-            print('DATALOADER load ', sample)
-            imgs, poses, poses_idx = DTU.load_scan_data(sample, self.load_mode, self.num_reference_views + 1, self.cfg, self.load_specific_poses, self.load_fixed, self.shuffle)
+            imgs, poses, poses_idx = DTU.load_scan_data(sample, self.load_mode, self.num_reference_views + 1, self.cfg, self.load_specific_reference_poses, self.load_fixed, self.shuffle)
             ref_images = imgs[:self.cfg.num_reference_views] # (num_ref_views, H, W, 3) np.array, f32
             ref_poses_idx = poses_idx[:self.cfg.num_reference_views]  # (num_reference_views) list, str
             ref_poses = poses[:self.cfg.num_reference_views] # (num_ref_views, 4, 4) np.array, f32
 
 
-            if self.load_specific_target_pose is None:
+            if self.load_specific_rendering_pose is None:
                 target = imgs[-1]  # (H, W, 3) np.array, f32
                 target_pose = poses[-1] # (4,4) np.array, f32
             else:
-                target_pose = self.load_specific_target_pose
+                target_pose = self.load_specific_rendering_pose
 
 
         else:
@@ -140,15 +130,15 @@ class SceneDataset(Dataset):
 
 
         if self.mode == 'test':
-            rays_o = torch.reshape(rays_o[::self.cfg.render_factor, ::self.cfg.render_factor], (-1, 3))
-            rays_d = torch.reshape(rays_d[::self.cfg.render_factor, ::self.cfg.render_factor], (-1, 3))
+            rays_o = torch.reshape(rays_o[::self.render_factor, ::self.render_factor], (-1, 3))
+            rays_d = torch.reshape(rays_d[::self.render_factor, ::self.render_factor], (-1, 3))
             pts, z_vals = self.sample_ray(rays_o,rays_d)  # pts: (rays, num_samples, 3), z_vals: (rays, num_samples)
 
             viewdirs = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
 
             ref_pts = self.proj_pts_to_ref(pts, ref_poses)
 
-            if self.load_specific_target_pose is None:
+            if self.load_specific_rendering_pose is None:
                 output['complete'] = [[rays_o[i:i+N_rays_test], rays_d[i:i+N_rays_test], viewdirs[i:i+N_rays_test],pts[i:i+N_rays_test],
                                        z_vals[i:i+N_rays_test], ref_pts[:,i:i+N_rays_test],
                                        ref_images, ref_poses, rel_ref_cam_locs, target, sample, self.focal ] for i in range(0, rays_o.shape[0], N_rays_test)]

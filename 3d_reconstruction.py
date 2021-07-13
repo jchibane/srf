@@ -36,7 +36,7 @@ def generate_mesh(cfg, epoch, i4d, test_dataset, specific_obj):
 
     # load the input data for the network
     test_dataloader = test_dataset.get_loader(num_workers=0)
-    test_dataloader.dataset.load_specific_sample = specific_obj
+    test_dataloader.dataset.load_specific_input = specific_obj
 
     test_data = test_dataloader.__iter__().__next__()['complete']
 

@@ -1,0 +1,24 @@
+expname = train_DTU
+basedir = ./logs
+datadir = ./data/DTU_MVS/
+dataset_type = DTU
+
+no_ndc = True
+white_bkgd = False
+split = split.pkl
+N_importance = 128
+N_samples = 64
+N_rand = 250
+N_rays_test = 250
+lrate_decay = 50
+i_testset = 500
+i_print = 1
+raw_noise_std = 0
+sigmoid = False
+near = 500
+far = 1000
+fine_model_duplicate = True
+precrop_iters = 10000
+precrop_frac = 0.5
+half_res = False
+generate_specific_samples = [scan23,scan106]

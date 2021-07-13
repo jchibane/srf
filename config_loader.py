@@ -111,7 +111,8 @@ def config_parser():
     parser.add_argument("--gen_pose", type=int, default=None,
                         help='what pose to generate for video or evaluation')
     parser.add_argument("--fixed_batch", type=int, default=0,
-                        help='what fixed input batch to use')
+                        help='A fixed batch of input reference images is loaded. Inputs are divided into batches'
+                             'of size num_reference_views keeping their ordering in the split file.')
 
 
     ## deepvoxels flags
@@ -163,4 +164,5 @@ def config_parser():
 def get_config():
 
     parser = config_parser()
-    return parser.parse_args()
+    cfg = parser.parse_args()
+    return cfg
