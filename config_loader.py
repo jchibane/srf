@@ -2,16 +2,14 @@ def config_parser():
 
     import configargparse
     parser = configargparse.ArgumentParser()
-    parser.add_argument('--config', is_config_file=True, default='./configs/DTU2.txt',
+    parser.add_argument('--config', is_config_file=True, default='./configs/train_DTU.txt',
                         help='config file path')
     parser.add_argument("--expname", type=str,
                         help='experiment name')
     parser.add_argument("--basedir", type=str, default='./logs/',
                         help='where to store ckpts and logs')
-    parser.add_argument("--datadir", type=str, default='./data/nerf_synthetic/lego',
+    parser.add_argument("--datadir", type=str, default='./data/DTU_MVS/',
                         help='input data directory')
-    parser.add_argument("--datadir_test", type=str, default='./data/nerf_synthetic/lego',
-                        help='input data directory for test images')
 
     # training options
     parser.add_argument("--fine_tune", type=str, default='None',
