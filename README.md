@@ -82,16 +82,15 @@ Initial improvements are obtained at 1k iterations, further improvements are obt
 After training, novel view synthesis and 3D reconstruction can be performed as seen in the above quickstart, but
 specifying the corresponding configuration file.
 
-----
+
 To fine-tune on a different scan, say with ID X, copy the config file `configs/start_finetune_scan23.txt` 
 ```
 cp configs/start_finetune_scan23.txt configs/start_finetune_scanX.txt
 ```
-
 and change "scan23" to "scanX" in the `expname`, `fine_tune` and `generate_specific_samples` variables of the
 configuration, where X is the ID of the desired scan. Similarly, you'd need to change "scan23" to "scanX" in the above
 experiment folder name.
-----
+
 
 ## Contact
 
