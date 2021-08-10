@@ -524,6 +524,18 @@ def load_cam_path():
             camera_path.append(pose)
     return camera_path
 
+def load_cam_path_debug():
+    global camera_path
+    poses = [27,15]
+    camera_path = []
+
+    for i, pose in enumerate(poses[:-1]):
+        frames = 14
+        for interpol in np.linspace(1/14,0.5,frames)[:frames - 1]:
+            pose = (1-interpol) * pose_extrinsics[f'c2w_{poses[i]}'] + interpol * pose_extrinsics[f'c2w_{poses[i+1]}']
+            camera_path.append(pose)
+    return camera_path
+
 
 def load_pose(pose):
     return pose_extrinsics[f'c2w_{pose}']

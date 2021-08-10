@@ -9,7 +9,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
-def training_visualization(num_images, cfg, i4d, dataset, epoch, generate_specific = True):
+def training_visualization(num_images, cfg, i4d, dataset, epoch, generate_specific_object = True, generate_specific_pose = True):
 
     # Create log dir and copy the config file
     basedir = cfg.basedir
@@ -18,25 +18,49 @@ def training_visualization(num_images, cfg, i4d, dataset, epoch, generate_specif
     dataset.render_factor = 8
     dataloader = dataset.get_loader(num_workers=0)
 
-    if generate_specific:
+    if generate_specific_object:
         iter = cfg.generate_specific_samples
     else:
         iter = range(num_images)
 
-    for sample in iter:
-        savedir = os.path.join(basedir, expname, 'training_visualization', f'epoch_{epoch}_{sample}')
-        img_outpath = os.path.join(savedir, f'rendering.png')
-        if os.path.exists(savedir):
-            continue
-        else:
-            os.makedirs(savedir)
+    if generate_specific_pose:
+        pose_iter = cfg.gen_pose
+    else:
+        pose_iter = ['random']
 
-        if generate_specific:
-            dataloader.dataset.load_specific_input = sample
-            print(f'generating {dataloader.dataset.load_specific_input}')
-        render_data = dataloader.__iter__().__next__()['complete']
-        render_and_save(i4d, dataset, render_data, savedir, img_outpath, False)
-        dataloader.dataset.load_specific_input = None
+    renderings = []
+    for sample in iter:
+        for pose in pose_iter:
+            savedir = os.path.join(basedir, expname, 'training_visualization', f'epoch_{epoch}_{sample}_{pose}')
+            img_outpath = os.path.join(savedir, f'rendering.png')
+            if os.path.exists(savedir):
+                continue
+            else:
+                os.makedirs(savedir)
+
+            if generate_specific_object:
+                dataloader.dataset.load_specific_input = sample
+                print(f'generating object {dataloader.dataset.load_specific_input}')
+
+            if generate_specific_pose:
+                dataloader.dataset.load_specific_rendering_pose = dataset.cam_path[pose]
+                print(f'generating pose {pose}')
+            render_data = dataloader.__iter__().__next__()['complete']
+            rgb = render_and_save(i4d, dataset, render_data, savedir, img_outpath, bool(generate_specific_pose))
+            renderings.append(rgb)
+
+            dataloader.dataset.load_specific_input = None
+            dataloader.dataset.load_specific_rendering_pose = None
+
+    plt.xticks([]), plt.yticks([])
+    fig = plt.figure()
+    for i,img in enumerate(renderings):
+        ax = fig.add_subplot(1, len(renderings), i + 1)
+        ax.xaxis.set_visible(False)
+        ax.yaxis.set_visible(False)
+        ax.imshow(img, interpolation='bicubic')
+
+    return fig
 
 
 
@@ -49,7 +73,7 @@ def render_pose(cfg, i4d, dataset, epoch, specific_obj, pose):
     dataloader = dataset.get_loader(num_workers=0)
 
 
-    savedir = os.path.join(basedir, expname, 'renderings', f'{specific_obj}_epoch_{epoch}_renderfactor{cfg.render_factor}')
+    savedir = os.path.join(basedir, expname, 'renderings', f'{specific_obj}_epoch_{epoch}_renderfactor_{cfg.render_factor}_batch_{cfg.fixed_batch}')
     os.makedirs(savedir, exist_ok=True)
 
 
@@ -76,13 +100,13 @@ def render_and_save(i4d, dataset, render_data, savedir, img_outpath, specific_po
     # Render image
     with torch.no_grad():
         if specific_pose:
-            rgb8, ref_images, scan = i4d.render_img(render_data, dataset.H, dataset.W, specific_pose)
+            rgb, ref_images, scan = i4d.render_img(render_data, dataset.render_factor, dataset.H, dataset.W, specific_pose)
         else:
-            rgb8, ref_images, target, scan = i4d.render_img(render_data, dataset.H, dataset.W, specific_pose)
+            rgb, ref_images, target, scan = i4d.render_img(render_data, dataset.render_factor, dataset.H, dataset.W, specific_pose)
             filename = os.path.join(savedir, f'target.png')
-            imageio.imwrite(filename, target)
+            imageio.imwrite(filename, (target*255).numpy().astype(np.uint8))
     # Save rendered image
-    imageio.imwrite(img_outpath, rgb8)
+    imageio.imwrite(img_outpath, rgb)
 
     # Copy all reference images into rendering folder
     for i, ref_img in enumerate(ref_images):
@@ -105,6 +129,7 @@ def render_and_save(i4d, dataset, render_data, savedir, img_outpath, specific_po
 
         plt.savefig(outpath)
         plt.close()
+    return rgb
 
 
 if __name__ == '__main__':
@@ -123,5 +148,7 @@ if __name__ == '__main__':
 
     if cfg.dataset_type == 'DTU':
         for scan in cfg.generate_specific_samples:
-            pose = DTU.load_cam_path()[cfg.gen_pose]
-            render_pose(cfg, i4d, dataset, i4d.start, scan, (cfg.gen_pose,pose))
+            print('cfg.gen_pose', cfg.gen_pose)
+            for pose_idx in cfg.gen_pose:
+                pose = DTU.load_cam_path()[pose_idx]
+                render_pose(cfg, i4d, dataset, i4d.start, scan, (pose_idx,pose))

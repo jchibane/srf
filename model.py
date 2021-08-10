@@ -147,7 +147,7 @@ class Implicit4D():
 
         return rgb.cpu().numpy(),   sigma.cpu().numpy()
 
-    def render_img(self, data, H, W, specific_pose = False):
+    def render_img(self, data, render_factor, H, W, specific_pose = False):
         all_ret = {}
         for batch in tqdm(data):
             # batch = [torch.Tensor(arr) for arr in batch]
@@ -171,7 +171,7 @@ class Implicit4D():
         all_ret = {k: torch.cat(all_ret[k], 0) for k in all_ret}
 
         for k in all_ret:
-            k_sh = [H//self.cfg.render_factor, W//self.cfg.render_factor] + list(all_ret[k].shape[1:])
+            k_sh = [H//render_factor, W//render_factor] + list(all_ret[k].shape[1:])
             all_ret[k] = torch.reshape(all_ret[k], k_sh)
 
 
@@ -186,8 +186,8 @@ class Implicit4D():
         expname = self.cfg.expname
 
         # Load checkpoints
-        if self.cfg.ft_path is not None and self.cfg.ft_path != 'None':
-            ckpts = [os.path.join(basedir, expname, self.cfg.ft_path)]
+        if self.cfg.ckpt_path is not None and self.cfg.ckpt_path != 'None':
+            ckpts = [os.path.join(basedir, expname, self.cfg.ckpt_path)]
         else:
             ckpts = [os.path.join(basedir, expname, f) for f in sorted(os.listdir(os.path.join(basedir, expname))) if
                      'tar' in f]
@@ -204,7 +204,7 @@ class Implicit4D():
             except:
                 self.val_min = None
 
-            if self.cfg.fine_tune != "None":
+            if self.cfg.fine_tune:
                 self.val_min = None
             self.optimizer.load_state_dict(ckpt['optimizer_state_dict'])
 
@@ -218,6 +218,7 @@ class Implicit4D():
                 print('Setting lr to fixed config value')
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] = self.cfg.lrate
+            print('Current learning-rate: ', self.optimizer.param_groups[0]['lr'])
 
     def save_model(self, global_step):
         path = os.path.join(self.cfg.basedir, self.cfg.expname, '{:06d}.tar'.format(global_step))
@@ -320,6 +321,7 @@ class Implicit4DNN(nn.Module):
         self.device = device
         self.num_ref_views = cfg.num_reference_views
         self.batch_size = cfg.batch_size
+        self.cfg = cfg
 
         self.combis_list = self.sample_sim_combinations(self.num_ref_views, 2)
 
@@ -402,6 +404,10 @@ class Implicit4DNN(nn.Module):
         features = features.permute(0, 3, 4, 1, 2) # out (batch_size, rays, num_samples, num_ref_views, features)
         features = features.reshape((self.batch_size * rays * num_samples, 1, self.num_ref_views, self.feature_size))
 
+
+        if self.cfg.fine_tune and self.cfg.shuffle_combis:
+            self.combis_list = self.sample_sim_combinations(self.num_ref_views, 2)
+            print('resample combis list')
 
         features = features[:,:,self.combis_list] # out (batch_size * rays * num_samples, 1, num_ref_views pairs, features)
         features = self.actvn(self.conv_sim_pair(features)) # out (batch_size * rays * num_samples, channels, num_ref_views pairs /2, 1)

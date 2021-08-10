@@ -5,6 +5,7 @@ __pycache__
 data/DTU_MVS
 data/DTU_MVS_local
 data/DTU_MVS_git
+slurm
 *.err
 *.out
 *.zip

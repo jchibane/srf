@@ -25,16 +25,6 @@ git clone https://github.com/jchibane/srf.git
 cd SRF_git
 conda env create -f srf_env.yml
 ```
-
-### Data Setup
-With the next commands the [DTU MVS dataset](https://roboimagedata.compute.dtu.dk/?page_id=36) is downloaded and put in place.
-```
-wget http://roboimagedata2.compute.dtu.dk/data/MVS/Rectified.zip -P data/
-unzip data/Rectified.zip -d data/
-mv data/Rectified/* data/DTU_MVS
-rmdir data/Rectified
-```
-
 ## Quick Start with Pretrained Model
 
 To synthesise novel views of a pretrained and finetuned model use the following command
@@ -42,7 +32,7 @@ To synthesise novel views of a pretrained and finetuned model use the following 
 python generator.py --config configs/finetune_scan23.txt --generate_specific_samples scan23 --gen_pose 0
 ```
 
-where `--gen_pose` is a camera pose of a video sequence from 0-55 (including both). 
+where `--gen_pose` is a camera pose of a video sequence from 0-51 (including both). 
 We also provide a second model that can be used by switching both "23" to "106" in the previous command.
 
 In order to do a 3D reconstruction please run:
@@ -55,14 +45,53 @@ python 3d_reconstruction.py --config configs/finetune_scan106.txt --generate_spe
 > previous command. Smaller batches will lead to increased generation time. Moreover, RAM usage can be reduced by
 > setting `--render_factor X` (with X=8 or 16) for image generation.
 
+
 ## Training
 
+### Data Setup
+
+With the next commands the [DTU MVS dataset](https://roboimagedata.compute.dtu.dk/?page_id=36) is downloaded and put in 
+place. 
+```
+wget http://roboimagedata2.compute.dtu.dk/data/MVS/Rectified.zip -P data/
+unzip data/Rectified.zip -d data/
+mv data/Rectified/* data/DTU_MVS
+rmdir data/Rectified
+```
+
+### Start Training
 Start to train a model with a specific configuration file using:
 ```
 python trainer.py --config configs/train_DTU.txt
 ```
 
-The fine-tuning code is coming soon.
+####Fine-tuning
+Next we optimize a model trained in the previous step on a specific scene given by 11 test images.
+
+Create a new experiment folder containing the trained model:
+```
+mkdir logs/start_finetuning_scan23
+cp logs/train_DTU/<your-val-min-checkpoint>.tar logs/start_finetuning_scan23/
+```
+And start fine-tuning with:
+```
+python trainer.py --config configs/start_finetuning_scan23.txt
+```
+
+Initial improvements are obtained at 1k iterations, further improvements are obtained around 3k and 13k iterations.
+After training, novel view synthesis and 3D reconstruction can be performed as seen in the above quickstart, but
+specifying the corresponding configuration file.
+
+----
+To fine-tune on a different scan, say with ID X, copy the config file `configs/start_finetune_scan23.txt` 
+```
+cp configs/start_finetune_scan23.txt configs/start_finetune_scanX.txt
+```
+and change "scan23" to "scanX" in the `expname`, `fine_tune` and `generate_specific_samples` variables of the
+configuration, where X is the ID of the desired scan. Similarly, you'd need to change "scan23" to "scanX" in the above
+experiment folder name.
+----
+
 ## Contact
 
 For questions and comments please contact [Julian Chibane](http://virtualhumans.mpi-inf.mpg.de/people/Chibane.html) via mail.
@@ -72,7 +101,8 @@ Copyright (c) 2021 Julian Chibane, Max-Planck-Gesellschaft
 
 By downloading and using this code you agree to the terms in the LICENSE.
 
-You agree to cite the `Stereo Radiance Fields (SRF): Learning View Synthesis for Sparse Views of Novel Scenes` paper in documents and papers that report on research using this software or the manuscript.
+You agree to cite the `Stereo Radiance Fields (SRF): Learning View Synthesis for Sparse Views of Novel Scenes` paper in 
+any documents that report on research using this software or the manuscript.
 
 
 <details>

@@ -6,6 +6,10 @@ from dataloader import SceneDataset
 import generator
 import math
 from glob import glob
+from torch.utils.tensorboard import SummaryWriter
+import torchvision
+
+
 
 
 
@@ -27,6 +31,8 @@ def train(cfg):
         f = os.path.join(basedir, expname, 'config.txt')
         with open(f, 'w') as file:
             file.write(open(cfg.config, 'r').read())
+
+    writer = SummaryWriter(os.path.join(basedir, expname, "tensorboard"))
 
     test_dataset = SceneDataset(cfg, 'test')
     train_dataset = SceneDataset(cfg, 'train')
@@ -65,19 +71,22 @@ def train(cfg):
         if global_step % cfg.i_weights == 0:
             i4d.save_model(global_step)
 
-        # if global_step % cfg.i_testset == 0:
-        #     generator.training_visualization(1, cfg,i4d,test_dataset, global_step)
+        if global_step % cfg.i_testset == 0:
+            plot = generator.training_visualization(1, cfg, i4d, test_dataset, global_step)
+            writer.add_figure('Visualization', plot, global_step)
 
         if global_step % cfg.i_print == 0:
+            writer.add_scalar('Train PSNR', psnr.item(), global_step)
+            writer.add_scalar('Train Loss(MSE)', loss.item(), global_step)
             tqdm.write(f"[TRAIN] Iter: {global_step} Loss: {loss.item()}  PSNR: {psnr.item()}")
 
         #fine tune validation steps
         fine_tune_val = False
-        if cfg.fine_tune != "None":
+        if cfg.fine_tune:
             fine_tune_val = global_step % cfg.i_val_fine_tune == 0
         # for every 10th epoch: if new epoch begins, compute validation loss
         prev_epoch = ((global_step - 1) // batches_per_epoch)
-        if (epoch != prev_epoch and epoch % 10 == 0 and not cfg.i_no_val) or fine_tune_val :
+        if (epoch != prev_epoch and epoch % cfg.i_validation_loss == 0 and not cfg.i_no_val) or fine_tune_val :
             # clear cuda variables to enable releasing memory
             del loss, psnr
             val_batches = 20
@@ -87,10 +96,14 @@ def train(cfg):
                 val_loss_batch, val_psnr_batch, val_dataset_iterator = compute_loss(val_dataset_iterator, val_dataset_loader, global_step, cfg)
                 val_loss_sum += val_loss_batch.item(); val_psnr_sum += val_psnr_batch.item()
                 tqdm.write(f"[VAL STEP] Iter: {global_step} Loss: {val_loss_batch.item()}  PSNR: {val_psnr_batch.item()}")
+                writer.add_scalar('Validation Loss(MSE)/Per Batch', val_loss_batch.item(), global_step + i)
+                writer.add_scalar('Validation PSNR/Per Batch', val_psnr_batch.item(), global_step + i)
                 # clear cuda variables to enable releasing memory
                 del val_loss_batch, val_psnr_batch
             val_loss = val_loss_sum / val_batches; val_psnr = val_psnr_sum/ val_batches
             tqdm.write(f"[VAL] Iter: {global_step} Loss: {val_loss}  PSNR: {val_psnr}")
+            writer.add_scalar('Validation Loss(MSE)/AVG', val_loss, global_step)
+            writer.add_scalar('Validation PSNR/AVG', val_psnr, global_step)
 
             if i4d.val_min is None:
                 i4d.val_min = val_loss

@@ -9,9 +9,9 @@ import data.load_DTU as DTU
 
 class SceneDataset(Dataset):
 
-    def __init__(self, cfg, mode, num_workers=16):
+    def __init__(self, cfg, mode):
         self.cfg = cfg
-        self.num_workers = num_workers
+        self.num_workers = cfg.num_workers
         self.mode = mode
         self.load_mode = mode
         self.data = None
@@ -26,22 +26,23 @@ class SceneDataset(Dataset):
         # load specific rendering pose - needed for generating novel view outputs
         self.load_specific_rendering_pose = None
         # load a reference views from a specific batch - needed to fine-tune on fixed inputs
+        # this is ignored when in training mode
         self.load_fixed = True
         # specifies which batch to load
         # cfg.fixed_batch
         # shuffle the loaded reference views - not needed anymore?
         self.shuffle = False
 
+        # Method that defines a camera path: loads a list of poses
+        self.cam_path = None
+
         # fine-tuning setting ------------------------------------------------------------------
-        if self.fine_tune != "None":
+        if self.fine_tune:
             print('Dataloader set in fine-tune mode. Fine-tuning:', self.fine_tune)
             self.load_specific_input = self.fine_tune
-            self.shuffle = True
             self.load_mode = 'test'
+            self.shuffle = True
 
-        # image generation setting -------------------------------------------------------------
-        if self.cfg.video or self.cfg.eval:
-            self.shuffle = False
 
         if cfg.dataset_type == 'DTU':
             self.data, self.H, self.W, self.focal, self.cc, self.camera_system = DTU.setup_DTU(self.load_mode, cfg)
@@ -51,6 +52,12 @@ class SceneDataset(Dataset):
             self.far = cfg.far
             self.multi_world2cam = DTU.multi_world2cam_grid_sample_mat
             self.multi_world2cam_torch = DTU.multi_world2cam_grid_sample_mat_torch
+            self.cam_path = DTU.load_cam_path()
+
+        # image generation setting -------------------------------------------------------------
+        if self.cfg.video or self.cfg.eval:
+            # disregarding the mode, if we are rendering video we want a fixed input for consistent outputs
+            self.shuffle = False
 
 
     def __len__(self):
@@ -93,23 +100,28 @@ class SceneDataset(Dataset):
         if self.cfg.dataset_type == 'DTU':
 
             # for comparison of models we implement to load specific input/output data
-            if self.load_specific_input is None:
-                sample = self.data[idx]
-            else:
+            if self.load_specific_input:
                 sample = self.load_specific_input
+            else:
+                sample = self.data[idx]
 
-            imgs, poses, poses_idx = DTU.load_scan_data(sample, self.load_mode, self.num_reference_views + 1, self.cfg, self.load_specific_reference_poses, self.load_fixed, self.shuffle)
+            imgs, poses, poses_idx = DTU.load_scan_data(sample, self.load_mode, self.num_reference_views + 1, self.cfg,
+                                                        self.load_specific_reference_poses, self.load_fixed,
+                                                        self.shuffle)
             ref_images = imgs[:self.cfg.num_reference_views] # (num_ref_views, H, W, 3) np.array, f32
             ref_poses_idx = poses_idx[:self.cfg.num_reference_views]  # (num_reference_views) list, str
             ref_poses = poses[:self.cfg.num_reference_views] # (num_ref_views, 4, 4) np.array, f32
 
-
-            if self.load_specific_rendering_pose is None:
+            if self.load_specific_rendering_pose is not None:
+                target_pose = self.load_specific_rendering_pose
+            # elif self.fine_tune:
+            #     # select on of the 10 input views as target
+            #     sampled_target = np.random.randint(1, self.cfg.num_reference_views + 1)
+            #     target = imgs[sampled_target]  # (H, W, 3) np.array, f32
+            #     target_pose = poses[sampled_target] # (4,4) np.array, f32
+            else:
                 target = imgs[-1]  # (H, W, 3) np.array, f32
                 target_pose = poses[-1] # (4,4) np.array, f32
-            else:
-                target_pose = self.load_specific_rendering_pose
-
 
         else:
             raise
